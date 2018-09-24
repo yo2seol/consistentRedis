@@ -299,10 +299,7 @@ struct redisCommand redisCommandTable[] = {
     {"pfdebug",pfdebugCommand,-3,"w",0,NULL,0,0,0,0,0},
     {"post",securityWarningCommand,-1,"lt",0,NULL,0,0,0,0,0},
     {"host:",securityWarningCommand,-1,"lt",0,NULL,0,0,0,0,0},
-    {"latency",latencyCommand,-2,"aslt",0,NULL,0,0,0,0,0},
-    {"wrecord",wrecordCommand,7,"wm",0,NULL,0,0,0,0,0},
-    {"wgc",witnessGcCommand,-5,"wm",0,NULL,0,0,0,0,0},
-    {"wgetrecoverydata",witnessGetRecoveryDataCommand,2,"wm",0,NULL,0,0,0,0,0}
+    {"latency",latencyCommand,-2,"aslt",0,NULL,0,0,0,0,0}
 };
 
 struct evictionPoolEntry *evictionPoolAlloc(void);
@@ -2044,7 +2041,6 @@ void initServer(void) {
     slowlogInit();
     latencyMonitorInit();
     bioInit();
-    witnessInit();
 
     /* Connect to witness servers */
     connectToWitness();

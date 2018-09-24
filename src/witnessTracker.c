@@ -21,6 +21,7 @@
 #include "MurmurHash3.h"
 #include "rifl.h"
 #include "timeTrace.h"
+#include "udp.h"
 
 /* functions from aof.c */
 struct client *createFakeClient();
@@ -30,7 +31,7 @@ void freeFakeClient(struct client *c);
 /*================================= Globals ================================= */
 
 /* Global vars */
-#define WITNESS_BATCH_SIZE 40
+#define WITNESS_BATCH_SIZE 20
 
 struct WitnessGcInfo {
     int hashIndex;
@@ -50,7 +51,9 @@ struct WitnessGcBioContext {
 /*================================= Functions =============================== */
 void scheduleFsyncAndWitnessGc() {
     record("start constructing gc RPC.", 0, 0, 0, 0);
+    // TODO: Construct GC packet
     char* masterIdxStr = "1";
+    int s = createSocket();
     sds cmdstr = sdscatprintf(sdsempty(), "*%d\r\n$3\r\nWGC\r\n$%d\r\n%s\r\n",
             2 + 3 * unsyncedRpcsSize, (int)strlen(masterIdxStr), masterIdxStr);
     for (int i = 0; i < unsyncedRpcsSize; ++i) {
@@ -75,7 +78,7 @@ void scheduleFsyncAndWitnessGc() {
                 hashIndex_len, hashIndex_str, clientId_len, clientId_str, requestId_len, requestId_str);
     }
     unsyncedRpcsSize = 0;
-
+    close(s);
     record("constructed gc RPC.", 0, 0, 0, 0);
     bioCreateBackgroundJob(BIO_FSYNC_AND_GC_WITNESS, (void*)cmdstr,
             (void*)(long)server.aof_fd, server.currentOpNum);

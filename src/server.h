@@ -48,6 +48,7 @@
 #include <netinet/in.h>
 #include <lua.h>
 #include <signal.h>
+#include <stdbool.h>
 
 typedef long long mstime_t; /* millisecond time type. */
 
@@ -1683,12 +1684,6 @@ void pfmergeCommand(client *c);
 void pfdebugCommand(client *c);
 void latencyCommand(client *c);
 void securityWarningCommand(client *c);
-void wrecordCommand(client *c);
-void witnessGcCommand(client *c);
-void witnessGetRecoveryDataCommand(client *c);
-
-// Not command but need to be exposed...
-void witnessInit();
 
 #if defined(__GNUC__)
 void *calloc(size_t count, size_t size) __attribute__ ((deprecated));
