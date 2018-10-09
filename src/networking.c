@@ -29,6 +29,7 @@
 
 #include "server.h"
 #include "timeTrace.h"
+#include "udp.h"
 #include <sys/uio.h>
 #include <sys/time.h>
 #include <math.h>
@@ -2082,18 +2083,4 @@ int processEventsWhileBlocked(void) {
         count += events;
     }
     return count;
-}
-
-void connectToWitness() {
-    for (int i = 0; i < server.numWitness; ++i) {
-        if (server.fdToWitness[i] > 0) {
-            continue;
-        }
-        char err[ANET_ERR_LEN];
-        server.fdToWitness[i] = anetTcpConnect(err, server.addrToWitness[i], server.port);
-        if (server.fdToWitness[i] == ANET_ERR) {
-            serverLog(LL_WARNING, "Error connecting to witness:%s", server.addrToWitness[i]);
-            continue;
-        }
-    }
 }

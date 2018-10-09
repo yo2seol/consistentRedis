@@ -60,6 +60,11 @@
 
 #include "server.h"
 #include "bio.h"
+#include "udp.h"
+#include "witnesscmd.h"
+
+#define SRC_ADDR "10.10.10.104"
+#define WITNESS_PORT 1111
 
 static pthread_t bio_threads[BIO_NUM_OPS];
 static pthread_mutex_t bio_mutex[BIO_NUM_OPS];
@@ -81,6 +86,7 @@ struct bio_job {
      * arguments we can just pass a pointer to a structure or alike. */
     void *arg1, *arg2;
     long long arg3;
+    uint32_t arg4;
 };
 
 void *bioProcessBackgroundJobs(void *arg);
@@ -124,13 +130,15 @@ void bioInit(void) {
     }
 }
 
-void bioCreateBackgroundJob(int type, void *arg1, void *arg2, long long arg3) {
+void bioCreateBackgroundJob(int type,
+        void *arg1, void *arg2, long long arg3, uint32_t arg4) {
     struct bio_job *job = zmalloc(sizeof(*job));
 
     job->time = time(NULL);
     job->arg1 = arg1;
     job->arg2 = arg2;
     job->arg3 = arg3;
+    job->arg4 = arg4;
     pthread_mutex_lock(&bio_mutex[type]);
     listAddNodeTail(bio_jobs[type],job);
     bio_pending[type]++;
@@ -186,17 +194,26 @@ void *bioProcessBackgroundJobs(void *arg) {
             aof_fsync((long)job->arg1);
             server.aof_last_fsync_opNum = job->arg3;
         } else if (type == BIO_FSYNC_AND_GC_WITNESS) {
-            sds gcCmd = (sds)job->arg1;
+            /* Create a UDP socket */
+            int s = createSocket();
+            /* Get the GC commands and the number of commands */
+            witnesscmd_t* cmds = (witnesscmd_t*) job->arg1;
+            uint32_t num_cmds = job->arg4;
+            /* lastOpNum used for FSYNC */
             long long lastOpNum = job->arg3;
             if (lastOpNum > server.aof_last_fsync_opNum) {
                 aof_fsync((long)job->arg2);
                 server.aof_last_fsync_opNum = lastOpNum;
             }
+            /* Iterate through the witnesses and send GC cmds */
             for (int i = 0; i < server.numWitness; ++i) {
-                if (anetWrite(server.fdToWitness[i], gcCmd, sdslen(gcCmd)) == -1) {
-                    fprintf(stderr, "Error while sending witness GC. %s", strerror(errno));
+                for (uint32_t j = 0; j < num_cmds; j++) {
+                    udpWrite(s, SRC_ADDR, server.addrToWitness[i], WITNESS_PORT, WITNESS_PORT, witness_data(&cmds[j]), false);
                 }
             }
+            /* Free cmds and close the socket */
+            zfree(cmds);
+            close(s);
         } else {
             serverPanic("Wrong job type in bioProcessBackgroundJobs().");
         }

@@ -22,6 +22,7 @@
 #include "rifl.h"
 #include "timeTrace.h"
 #include "udp.h"
+#include "witnesscmd.h"
 
 /* functions from aof.c */
 struct client *createFakeClient();
@@ -41,7 +42,7 @@ struct WitnessGcInfo {
 
 /* 0th index is not used. */
 struct WitnessGcInfo unsyncedRpcs[WITNESS_BATCH_SIZE] = {{0,0,0}, };
-int unsyncedRpcsSize = 0;
+uint32_t unsyncedRpcsSize = 0;
 
 struct WitnessGcBioContext {
     long long maxOpNum;
@@ -51,37 +52,23 @@ struct WitnessGcBioContext {
 /*================================= Functions =============================== */
 void scheduleFsyncAndWitnessGc() {
     record("start constructing gc RPC.", 0, 0, 0, 0);
-    // TODO: Construct GC packet
-    char* masterIdxStr = "1";
-    int s = createSocket();
-    sds cmdstr = sdscatprintf(sdsempty(), "*%d\r\n$3\r\nWGC\r\n$%d\r\n%s\r\n",
-            2 + 3 * unsyncedRpcsSize, (int)strlen(masterIdxStr), masterIdxStr);
-    for (int i = 0; i < unsyncedRpcsSize; ++i) {
-        int hashIndex_len, clientId_len, requestId_len;
-        char hashIndex_str[LONG_STR_SIZE];
-        char clientId_str[LONG_STR_SIZE];
-        char requestId_str[LONG_STR_SIZE];
-
-        hashIndex_len = ulltoa64(hashIndex_str, sizeof(hashIndex_str),
-                unsyncedRpcs[i].hashIndex);
-        clientId_len = ulltoa64(clientId_str, sizeof(clientId_str),
-                unsyncedRpcs[i].clientId);
-        requestId_len = ulltoa64(requestId_str, sizeof(requestId_str),
-                unsyncedRpcs[i].requestId);
-//        hashIndex_len = ll2string(hashIndex_str, sizeof(hashIndex_str),
-//                unsyncedRpcs[i].hashIndex);
-//        clientId_len = ll2string(clientId_str, sizeof(clientId_str),
-//                unsyncedRpcs[i].clientId);
-//        requestId_len = ll2string(requestId_str, sizeof(requestId_str),
-//                unsyncedRpcs[i].requestId);
-        cmdstr = sdscatprintf(cmdstr, "$%d\r\n%s\r\n$%d\r\n%s\r\n$%d\r\n%s\r\n",
-                hashIndex_len, hashIndex_str, clientId_len, clientId_str, requestId_len, requestId_str);
+    /* Create a set of GC Cmds */
+    witnesscmd_t* cmds =
+        (witnesscmd_t *) zmalloc(unsyncedRpcsSize * sizeof(witnesscmd_t));
+    for (uint32_t i = 0; i < unsyncedRpcsSize; ++i) {
+        init_witnesscmd(cmds, "D", unsyncedRpcs[i].clientId,
+            unsyncedRpcs[i].requestId,
+            unsyncedRpcs[i].hashIndex, "", 0);
+        cmds++;
     }
     unsyncedRpcsSize = 0;
-    close(s);
     record("constructed gc RPC.", 0, 0, 0, 0);
-    bioCreateBackgroundJob(BIO_FSYNC_AND_GC_WITNESS, (void*)cmdstr,
-            (void*)(long)server.aof_fd, server.currentOpNum);
+
+    /* Submit the GC job to the background thread */
+    bioCreateBackgroundJob(BIO_FSYNC_AND_GC_WITNESS,
+        cmds,
+        (void*)(long)server.aof_fd, server.currentOpNum,
+        unsyncedRpcsSize);
     record("bioBackgroundJob Created.", 0, 0, 0, 0);
 }
 

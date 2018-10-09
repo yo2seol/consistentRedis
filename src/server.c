@@ -2041,9 +2041,6 @@ void initServer(void) {
     slowlogInit();
     latencyMonitorInit();
     bioInit();
-
-    /* Connect to witness servers */
-    connectToWitness();
 }
 
 /* Populates the Redis Command Table starting from the hard coded list

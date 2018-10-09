@@ -32,7 +32,6 @@
 #include "crc64.h"
 
 #include <arpa/inet.h>
-#include <signal.h>
 
 #ifdef HAVE_BACKTRACE
 #include <execinfo.h>
