@@ -86,7 +86,6 @@ struct bio_job {
      * arguments we can just pass a pointer to a structure or alike. */
     void *arg1, *arg2;
     long long arg3;
-    uint32_t arg4;
 };
 
 void *bioProcessBackgroundJobs(void *arg);
@@ -131,14 +130,13 @@ void bioInit(void) {
 }
 
 void bioCreateBackgroundJob(int type,
-        void *arg1, void *arg2, long long arg3, uint32_t arg4) {
+        void *arg1, void *arg2, long long arg3) {
     struct bio_job *job = zmalloc(sizeof(*job));
 
     job->time = time(NULL);
     job->arg1 = arg1;
     job->arg2 = arg2;
     job->arg3 = arg3;
-    job->arg4 = arg4;
     pthread_mutex_lock(&bio_mutex[type]);
     listAddNodeTail(bio_jobs[type],job);
     bio_pending[type]++;
@@ -197,8 +195,7 @@ void *bioProcessBackgroundJobs(void *arg) {
             /* Create a UDP socket */
             int s = createSocket();
             /* Get the GC commands and the number of commands */
-            witnesscmd_t* cmds = (witnesscmd_t*) job->arg1;
-            uint32_t num_cmds = job->arg4;
+            witnesscmd_t* cmd = (witnesscmd_t*) job->arg1;
             /* lastOpNum used for FSYNC */
             long long lastOpNum = job->arg3;
             if (lastOpNum > server.aof_last_fsync_opNum) {
@@ -207,12 +204,12 @@ void *bioProcessBackgroundJobs(void *arg) {
             }
             /* Iterate through the witnesses and send GC cmds */
             for (int i = 0; i < server.numWitness; ++i) {
-                for (uint32_t j = 0; j < num_cmds; j++) {
-                    udpWrite(s, SRC_ADDR, server.addrToWitness[i], WITNESS_PORT, WITNESS_PORT, witness_data(&cmds[j]), false);
-                }
+                udpWrite(s, SRC_ADDR, server.addrToWitness[i], WITNESS_PORT,
+                         WITNESS_PORT, witness_data(cmd), false);
             }
-            /* Free cmds and close the socket */
-            zfree(cmds);
+            /* TODO: Wait for ACKS? */
+            /* Free cmd and close the socket */
+            zfree(cmd);
             close(s);
         } else {
             serverPanic("Wrong job type in bioProcessBackgroundJobs().");

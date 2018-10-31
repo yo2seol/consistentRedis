@@ -52,23 +52,31 @@ struct WitnessGcBioContext {
 /*================================= Functions =============================== */
 void scheduleFsyncAndWitnessGc() {
     record("start constructing gc RPC.", 0, 0, 0, 0);
-    /* Create a set of GC Cmds */
-    witnesscmd_t* cmds =
-        (witnesscmd_t *) zmalloc(unsyncedRpcsSize * sizeof(witnesscmd_t));
+    // Create a GC cmds.
+    witnesscmd_t* cmd = (witnesscmd_t *) zmalloc(sizeof(witnesscmd_t));
+    uint64_t clientIds[unsyncedRpcsSize];
+    uint64_t reqIds[unsyncedRpcsSize];
+    uint32_t hashIdxs[unsyncedRpcsSize];
+    uint32_t valueSize;
     for (uint32_t i = 0; i < unsyncedRpcsSize; ++i) {
-        init_witnesscmd(cmds, "D", unsyncedRpcs[i].clientId,
-            unsyncedRpcs[i].requestId,
-            unsyncedRpcs[i].hashIndex, "", 0);
-        cmds++;
+        clientIds[i] = unsyncedRpcs[i].clientId;
+        reqIds[i] = unsyncedRpcs[i].requestId;
+        hashIdxs[i] = unsyncedRpcs[i].hashIndex;
     }
+
+    // Compute the size of the payload.
+    valueSize = (2 * sizeof(uint64_t)) + sizeof(uint32_t);
+    valueSize *= unsyncedRpcsSize;
+
+    // Create the packet.
+    create_del_wcmd(cmd, clientIds, reqIds, hashIdxs, valueSize);
     unsyncedRpcsSize = 0;
     record("constructed gc RPC.", 0, 0, 0, 0);
 
-    /* Submit the GC job to the background thread */
+    // Submit the GC job to the background thread.
     bioCreateBackgroundJob(BIO_FSYNC_AND_GC_WITNESS,
-        cmds,
-        (void*)(long)server.aof_fd, server.currentOpNum,
-        unsyncedRpcsSize);
+        cmd,
+        (void*)(long)server.aof_fd, server.currentOpNum);
     record("bioBackgroundJob Created.", 0, 0, 0, 0);
 }
 

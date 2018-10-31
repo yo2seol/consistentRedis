@@ -201,7 +201,7 @@ ssize_t aofRewriteBufferWrite(int fd) {
  * file descriptor (the one of the AOF file) in another thread. */
 void aof_background_fsync(int fd) {
     bioCreateBackgroundJob(BIO_AOF_FSYNC,
-        (void*)(long)fd,NULL,server.currentOpNum, 0);
+        (void*)(long)fd,NULL,server.currentOpNum);
 }
 
 /* Called when the user switches from "appendonly yes" to "appendonly no"
@@ -1506,7 +1506,7 @@ void backgroundRewriteDoneHandler(int exitcode, int bysignal) {
 
         /* Asynchronously close the overwritten AOF. */
         if (oldfd != -1) { 
-            bioCreateBackgroundJob(BIO_CLOSE_FILE,(void*)(long)oldfd,NULL,0,0);
+            bioCreateBackgroundJob(BIO_CLOSE_FILE,(void*)(long)oldfd,NULL,0);
         }
 
         serverLog(LL_VERBOSE,
