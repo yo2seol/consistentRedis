@@ -53,8 +53,8 @@ endif
 # Override default settings if possible
 -include .make-settings
 
-FINAL_CFLAGS=$(STD) $(WARN) $(OPT) $(DEBUG) $(CFLAGS) $(REDIS_CFLAGS) -I../deps/geohash-int -I/home/p4/Desktop/witnesscmd -L/home/p4/Desktop/witnesscmd
-FINAL_LDFLAGS=$(LDFLAGS) $(REDIS_LDFLAGS) $(DEBUG) -L/home/p4/Desktop/witnesscmd
+FINAL_CFLAGS=$(STD) $(WARN) $(OPT) $(DEBUG) $(CFLAGS) $(REDIS_CFLAGS) -I../deps/geohash-int -I../..//witnesscmd -L../..//witnesscmd
+FINAL_LDFLAGS=$(LDFLAGS) $(REDIS_LDFLAGS) $(DEBUG) -L../../witnesscmd
 FINAL_LIBS=-ldl -lwitnesscmd -lm
 DEBUG=-g -ggdb
 
