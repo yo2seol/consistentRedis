@@ -205,7 +205,7 @@ void *bioProcessBackgroundJobs(void *arg) {
             /* Iterate through the witnesses and send GC cmds */
             for (int i = 0; i < server.numWitness; ++i) {
                 udpWrite(s, SRC_ADDR, server.addrToWitness[i], WITNESS_PORT,
-                         WITNESS_PORT, witness_data(cmd), false);
+                         WITNESS_PORT, witness_data(cmd), witness_size(cmd), false);
             }
             /* TODO: Wait for ACKS? */
             /* Free cmd and close the socket */

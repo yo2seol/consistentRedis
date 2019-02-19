@@ -27,5 +27,5 @@ unsigned short csum(unsigned short *ptr, int nbytes);
 
 int createSocket();
 int udpWrite(int s, const char* saddr, const char* daddr, short sport, short dport,
-             char* buf,  bool chksum);
+             char* buf, int len, bool chksum);
 #endif

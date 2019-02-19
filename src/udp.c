@@ -42,10 +42,11 @@ unsigned short csum(unsigned short *ptr,int nbytes) {
 }
 
 int udpWrite(int s, const char* saddr, const char* daddr, short sport, short dport,
-             char* buf, bool chksum)
+             char* buf, int len, bool chksum)
 { 
     // Datagram to represent the packet
-    char datagram[4096] , source_ip[32] , *data , *pseudogram;
+    char datagram[4096];
+    char *data , *pseudogram;
     // Zero out the packet buffer
     memset (datagram, 0, 4096);
     // IP header
@@ -60,8 +61,6 @@ int udpWrite(int s, const char* saddr, const char* daddr, short sport, short dpo
     data = datagram + sizeof(struct iphdr) + sizeof(struct udphdr);
     strcpy(data , buf);
 
-
-    strcpy(source_ip , saddr);
     sin.sin_family = AF_INET;
     sin.sin_port = htons(80);
     sin.sin_addr.s_addr = inet_addr(daddr);
@@ -70,13 +69,13 @@ int udpWrite(int s, const char* saddr, const char* daddr, short sport, short dpo
     iph->ihl = 5;
     iph->version = 4;
     iph->tos = 0;
-    iph->tot_len = sizeof (struct iphdr) + sizeof (struct udphdr) + strlen(data);
+    iph->tot_len = sizeof (struct iphdr) + sizeof (struct udphdr) + len;
     iph->id = htons(10); //Id of this packet
     iph->frag_off = 0;
     iph->ttl = 255;
     iph->protocol = IPPROTO_UDP;
     iph->check = 0; //Set to 0 before calculating checksum
-    iph->saddr = inet_addr ( source_ip );  //Spoof the source ip address
+    iph->saddr = inet_addr(saddr);  //Spoof the source ip address
     iph->daddr = sin.sin_addr.s_addr;
 
     //Compute checksum if needed
@@ -85,27 +84,27 @@ int udpWrite(int s, const char* saddr, const char* daddr, short sport, short dpo
     //UDP header
     udph->uh_sport = htons(sport);
     udph->uh_dport = htons(dport);
-    udph->uh_ulen = htons(8 + strlen(data)); //tcp header size
+    udph->uh_ulen = htons(8 + len); //udp header size
     udph->uh_sum = 0; //leave checksum 0 now, filled later by pseudo header
 
     //Now the UDP checksum using the pseudo header
     if (chksum) {
-        psh.source_address = inet_addr( source_ip );
+        psh.source_address = inet_addr(saddr);
         psh.dest_address = sin.sin_addr.s_addr;
         psh.placeholder = 0;
         psh.protocol = IPPROTO_UDP;
-        psh.udp_length = htons(sizeof(struct udphdr) + strlen(data) );
+        psh.udp_length = htons(sizeof(struct udphdr) + len);
         
-        int psize = sizeof(struct pseudo_header) + sizeof(struct udphdr) + strlen(data);
+        int psize = sizeof(struct pseudo_header) + sizeof(struct udphdr) + len;
         pseudogram = (char *) malloc(psize);
         
         memcpy(pseudogram , (char*) &psh , sizeof (struct pseudo_header));
-        memcpy(pseudogram + sizeof(struct pseudo_header) , udph , sizeof(struct udphdr) + strlen(data));
+        memcpy(pseudogram + sizeof(struct pseudo_header) , udph , sizeof(struct udphdr) + len);
         udph->uh_sum = csum( (unsigned short*) pseudogram , psize);
     }
 
     //Send the packet
-    if (sendto (s, datagram, iph->tot_len ,  0, (struct sockaddr *) &sin, sizeof (sin)) < 0) {
+    if (sendto (s, data, len,  0, (struct sockaddr *) &sin, sizeof (sin)) < 0) {
         perror("sendto failed");
         return 1;
     }
